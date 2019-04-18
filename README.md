@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # SECOND for KITTI/NuScenes object detection
 SECOND detector.
 
@@ -270,3 +271,7 @@ All training and inference code use kitti box format. So we need to convert othe
 * Kitti camera box
 
 A kitti camera box is consist of 7 elements: [x, y, z, l, h, w, ry].
+=======
+# faster-more-furious
+Deep learning course project
+>>>>>>> e0c3012553a7c476bea8ed0228b1db779a19997f
