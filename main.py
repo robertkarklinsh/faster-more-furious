@@ -16,7 +16,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 batch_size=12
 
 # dataset
-dataset=KittiDataset(root='/home/aeye/Documents/training/training/',set='train')
+dataset=KittiDataset(root='/home/Documents/training/training/',set='train')
 data_loader = data.DataLoader(dataset, batch_size, shuffle=True)
 
 model = ComplexYOLO()
