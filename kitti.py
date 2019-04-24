@@ -12,10 +12,10 @@ from utils import *
 
 class KittiDataset(torch.utils.data.Dataset):
 
-    def __init__(self, root='/home/yuliu/KITTI',set='train',type='velodyne_train'):
+    def __init__(self, root='/home/Documents/training/training/',set='train',type='velodyne_train'):
         self.type = type
         self.root = root
-        self.data_path = os.path.join(root, 'training')
+        self.data_path = os.path.join(root)
         self.lidar_path = os.path.join(self.data_path, "velodyne/")
         self.image_path = os.path.join(self.data_path, "image_2/")
         self.calib_path = os.path.join(self.data_path, "calib/")
@@ -38,7 +38,7 @@ class KittiDataset(torch.utils.data.Dataset):
             calib = load_kitti_calib(calib_file)
 
             
-            target = get_target(label_file,calib['Tr_velo2cam'])
+            target = get_target2(label_file)
             #print(target)
             #print(self.file_list[i])
             
