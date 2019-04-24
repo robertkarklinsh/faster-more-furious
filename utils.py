@@ -8,6 +8,7 @@ import math
 
 
 # classes
+object_list = {'Car':0, 'Van':1, 'Truck':2, 'Pedestrian':3, 'Person_sitting':4, 'Cyclist':5, 'Tram':6}
 class_list = ['Car', 'Van' , 'Truck' , 'Pedestrian' , 'Person_sitting' , 'Cyclist' , 'Tram' ]
 
 
@@ -15,6 +16,50 @@ bc={}
 bc['minX'] = 0; bc['maxX'] = 80; bc['minY'] = -40; bc['maxY'] = 40
 bc['minZ'] =-2; bc['maxZ'] = 1.25
 
+def interpret_kitti_label(bbox):
+    w, h, l, y, z, x, yaw = bbox[8:15]
+    y = -y
+    yaw =  (yaw + np.pi / 2)
+
+    return x, y, w, l, yaw
+
+def get_target2(label_file):
+    target = np.zeros([50, 7], dtype=np.float32)
+
+    with open(label_file, 'r') as f:
+        lines = f.readlines()
+
+    num_obj = len(lines)
+    index = 0
+    for j in range(num_obj):
+        obj = lines[j].strip().split(' ')
+        obj_class = obj[0].strip()
+
+        if obj_class in class_list:
+            bbox = []
+            bbox.append(object_list[obj_class])
+            bbox.extend([float(e) for e in obj[1:]])
+
+            x, y, w, l, yaw = interpret_kitti_label(bbox)
+
+            location_x = x
+            location_y = y
+
+            if (location_x > 0) & (location_x < 40) & (location_y > -40) & (location_y < 40):
+                target[index][1] = (y + 40) / 80  # we should put this in [0,1], so divide max_size  80 m
+                target[index][2] = x / 40  # make sure target inside the covering area (0,1)
+
+                target[index][3] = float(l) / 80
+                target[index][4] = float(w) / 40  # get target width, length
+
+                target[index][5] = math.sin(float(yaw))  # complex YOLO   Im
+                target[index][6] = math.cos(float(yaw))  # complex YOLO   Re
+
+                for i in range(len(class_list)):
+                    if obj_class == class_list[i]:  # get target class
+                        target[index][0] = i
+                index = index + 1
+    return target
 
 def removePoints(PointCloud, BoundaryCond):
     
@@ -226,41 +271,9 @@ def load_kitti_calib(calib_file):
 
 
 
-anchors = [[1.08,1.19], [3.42,4.41], [6.63,11.38], [9.42,5.11], [16.62,10.52]]
+# anchors = [[1.08,1.19], [3.42,4.41], [6.63,11.38], [9.42,5.11], [16.62,10.52]]
+anchors = [[0.24,0.68], [0.27,0.33], [0.64,1.48], [0.70,1.82], [1.04,4.64]]
 
-
-# def bbox_iou(box1, box2, x1y1x2y2=True):
-#     if x1y1x2y2:
-#         mx = min(box1[0], box2[0])
-#         Mx = max(box1[2], box2[2])
-#         my = min(box1[1], box2[1])
-#         My = max(box1[3], box2[3])
-#         w1 = box1[2] - box1[0]
-#         h1 = box1[3] - box1[1]
-#         w2 = box2[2] - box2[0]
-#         h2 = box2[3] - box2[1]
-#     else:
-#         mx = min(box1[0]-box1[2]/2.0, box2[0]-box2[2]/2.0)
-#         Mx = max(box1[0]+box1[2]/2.0, box2[0]+box2[2]/2.0)
-#         my = min(box1[1]-box1[3]/2.0, box2[1]-box2[3]/2.0)
-#         My = max(box1[1]+box1[3]/2.0, box2[1]+box2[3]/2.0)
-#         w1 = box1[2]
-#         h1 = box1[3]
-#         w2 = box2[2]
-#         h2 = box2[3]
-#     uw = Mx - mx
-#     uh = My - my
-#     cw = w1 + w2 - uw
-#     ch = h1 + h2 - uh
-#     carea = 0
-#     if cw <= 0 or ch <= 0:
-#         return 0.0
-#
-#     area1 = w1 * h1
-#     area2 = w2 * h2
-#     carea = cw * ch
-#     uarea = area1 + area2 - carea
-#     return carea/uarea
 
 def bbox_iou(box1, box2, x1y1x2y2=True):
     """
@@ -293,6 +306,39 @@ def bbox_iou(box1, box2, x1y1x2y2=True):
     iou = inter_area / (b1_area + b2_area - inter_area + 1e-16)
 
     return iou
+
+def bbox_iou1(box1, box2, x1y1x2y2=True):
+    if x1y1x2y2:
+        mx = min(box1[0], box2[0])
+        Mx = max(box1[2], box2[2])
+        my = min(box1[1], box2[1])
+        My = max(box1[3], box2[3])
+        w1 = box1[2] - box1[0]
+        h1 = box1[3] - box1[1]
+        w2 = box2[2] - box2[0]
+        h2 = box2[3] - box2[1]
+    else:
+        mx = min(box1[0]-box1[2]/2.0, box2[0]-box2[2]/2.0)
+        Mx = max(box1[0]+box1[2]/2.0, box2[0]+box2[2]/2.0)
+        my = min(box1[1]-box1[3]/2.0, box2[1]-box2[3]/2.0)
+        My = max(box1[1]+box1[3]/2.0, box2[1]+box2[3]/2.0)
+        w1 = box1[2]
+        h1 = box1[3]
+        w2 = box2[2]
+        h2 = box2[3]
+    uw = Mx - mx
+    uh = My - my
+    cw = w1 + w2 - uw
+    ch = h1 + h2 - uh
+    carea = 0
+    if cw <= 0 or ch <= 0:
+        return 0.0
+
+    area1 = w1 * h1
+    area2 = w2 * h2
+    carea = cw * ch
+    uarea = area1 + area2 - carea
+    return carea/uarea
 
 
 
@@ -366,7 +412,3 @@ def convert2cpu(gpu_matrix):
 
 def convert2cpu_long(gpu_matrix):
     return torch.LongTensor(gpu_matrix.size()).copy_(gpu_matrix)
-
-
-
-
