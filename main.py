@@ -7,12 +7,16 @@ import numpy as np
 from complexYOLO import ComplexYOLO
 from kitti import KittiDataset
 from region_loss import RegionLoss
+import os
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+
 
 
 batch_size=12
 
 # dataset
-dataset=KittiDataset(root='/home/ai/KITTI',set='train')
+dataset=KittiDataset(root='/home/aeye/Documents/training/training/',set='train')
 data_loader = data.DataLoader(dataset, batch_size, shuffle=True)
 
 model = ComplexYOLO()
@@ -26,7 +30,7 @@ region_loss = RegionLoss(num_classes=8, num_anchors=5)
 
 
 
-for epoch in range(200):
+for epoch in range(400):
 
    for batch_idx, (rgb_map, target) in enumerate(data_loader):          
           optimizer.zero_grad()
@@ -38,5 +42,5 @@ for epoch in range(200):
           loss.backward()
           optimizer.step()
 
-   if (epoch % 2 == 0):
+   if (epoch % 10 == 0):
        torch.save(model, "ComplexYOLO_epoch"+str(epoch))
