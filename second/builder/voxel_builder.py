@@ -1,6 +1,6 @@
 import numpy as np
 
-from spconv.utils import VoxelGenerator
+from spconv.utils import VoxelGenerator, VoxelGeneratorV2
 from second.protos import voxel_generator_pb2
 
 
@@ -24,5 +24,6 @@ def build(voxel_config):
         voxel_size=list(voxel_config.voxel_size),
         point_cloud_range=list(voxel_config.point_cloud_range),
         max_num_points=voxel_config.max_number_of_points_per_voxel,
-        max_voxels=20000)
+        max_voxels=20000,
+        full_mean=False)
     return voxel_generator

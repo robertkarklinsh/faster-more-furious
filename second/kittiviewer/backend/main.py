@@ -223,6 +223,7 @@ def inference_by_idx():
 
 
 def main(port=16666):
+    # 0.0.0.0
     app.run(host='127.0.0.1', threaded=True, port=port)
 
 if __name__ == '__main__':
