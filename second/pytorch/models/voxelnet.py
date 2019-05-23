@@ -275,6 +275,10 @@ class VoxelNet(nn.Module):
         self.end_timer("rpn forward")
         box_preds = preds_dict["box_preds"]
         cls_preds = preds_dict["cls_preds"]
+
+
+
+
         if self.training:
             labels = example['labels']
             reg_targets = example['reg_targets']
