@@ -15,6 +15,9 @@ import torch.utils.data as data
 import numpy as np
 import argparse
 
+import visdom
+
+viz = visdom.Visdom()
 
 def str2bool(v):
     return v.lower() in ("yes", "true", "t", "1")
@@ -37,7 +40,7 @@ parser.add_argument('--start_iter', default=0, type=int,
                     help='Resume training at this iter')
 parser.add_argument('--num_workers', default=4, type=int,
                     help='Number of workers used in dataloading')
-parser.add_argument('--cuda', default=True, type=str2bool,
+parser.add_argument('--cuda', default=False, type=str2bool,
                     help='Use CUDA to train model')
 parser.add_argument('--lr', '--learning-rate', default=1e-3, type=float,
                     help='initial learning rate')
@@ -47,7 +50,7 @@ parser.add_argument('--weight_decay', default=5e-4, type=float,
                     help='Weight decay for SGD')
 parser.add_argument('--gamma', default=0.1, type=float,
                     help='Gamma update for SGD')
-parser.add_argument('--visdom', default=False, type=str2bool,
+parser.add_argument('--visdom', default=True, type=str2bool,
                     help='Use visdom for loss visualization')
 parser.add_argument('--save_folder', default='weights/',
                     help='Directory for saving checkpoint models')
@@ -70,27 +73,24 @@ if not os.path.exists(args.save_folder):
 
 def train():
     if args.dataset == 'COCO':
-        if args.dataset_root == VOC_ROOT:
-            if not os.path.exists(COCO_ROOT):
-                parser.error('Must specify dataset_root if specifying dataset')
-            print("WARNING: Using default COCO dataset_root because " +
-                  "--dataset_root was not specified.")
-            args.dataset_root = COCO_ROOT
-        cfg = coco
-        dataset = COCODetection(root=args.dataset_root,
-                                transform=SSDAugmentation(cfg['min_dim'],
-                                                          MEANS))
+        # if args.dataset_root == VOC_ROOT:
+        #     if not os.path.exists(COCO_ROOT):
+        #         parser.error('Must specify dataset_root if specifying dataset')
+        #     print("WARNING: Using default COCO dataset_root because " +
+        #           "--dataset_root was not specified.")
+        #     args.dataset_root = COCO_ROOT
+        # cfg = coco
+        # dataset = COCODetection(root=args.dataset_root,
+        #                         transform=SSDAugmentation(cfg['min_dim'],
+        #                                             MEANS))
+        pass
     elif args.dataset == 'VOC':
-        if args.dataset_root == COCO_ROOT:
-            parser.error('Must specify dataset if specifying dataset_root')
+        # if args.dataset_root == COCO_ROOT:
+        #     parser.error('Must specify dataset if specifying dataset_root')
         cfg = voc
         dataset = VOCDetection(root=args.dataset_root,
                                transform=SSDAugmentation(cfg['min_dim'],
                                                          MEANS))
-
-    if args.visdom:
-        import visdom
-        viz = visdom.Visdom()
 
     ssd_net = build_ssd('train', cfg['min_dim'], cfg['num_classes'])
     net = ssd_net
@@ -143,7 +143,7 @@ def train():
         epoch_plot = create_vis_plot('Epoch', 'Loss', vis_title, vis_legend)
 
     data_loader = data.DataLoader(dataset, args.batch_size,
-                                  num_workers=args.num_workers,
+                                  num_workers=0,
                                   shuffle=True, collate_fn=detection_collate,
                                   pin_memory=True)
     # create batch iterator
@@ -165,11 +165,13 @@ def train():
         images, targets = next(batch_iterator)
 
         if args.cuda:
-            images = Variable(images.cuda())
-            targets = [Variable(ann.cuda(), volatile=True) for ann in targets]
+            images = images.cuda()
+            with torch.no_grad():
+                targets = [ann.cuda() for ann in targets]
         else:
-            images = Variable(images)
-            targets = [Variable(ann, volatile=True) for ann in targets]
+            images = images
+            with torch.no_grad():
+                targets = [ann for ann in targets]
         # forward
         t0 = time.time()
         out = net(images)
@@ -180,21 +182,22 @@ def train():
         loss.backward()
         optimizer.step()
         t1 = time.time()
-        loc_loss += loss_l.data[0]
-        conf_loss += loss_c.data[0]
+        loc_loss += loss_l.data.item()
+        conf_loss += loss_c.data.item()
 
         if iteration % 10 == 0:
             print('timer: %.4f sec.' % (t1 - t0))
-            print('iter ' + repr(iteration) + ' || Loss: %.4f ||' % (loss.data[0]), end=' ')
+            print('iter ' + repr(iteration) + ' || Loss: %.4f ||' % (loss.data.item()), end=' ')
 
         if args.visdom:
-            update_vis_plot(iteration, loss_l.data[0], loss_c.data[0],
+            update_vis_plot(iteration, loss_l.data.item(), loss_c.data.item(),
                             iter_plot, epoch_plot, 'append')
 
         if iteration != 0 and iteration % 5000 == 0:
             print('Saving state, iter:', iteration)
             torch.save(ssd_net.state_dict(), 'weights/ssd300_COCO_' +
                        repr(iteration) + '.pth')
+
     torch.save(ssd_net.state_dict(),
                args.save_folder + '' + args.dataset + '.pth')
 
@@ -211,7 +214,7 @@ def adjust_learning_rate(optimizer, gamma, step):
 
 
 def xavier(param):
-    init.xavier_uniform(param)
+    init.xavier_uniform_(param)
 
 
 def weights_init(m):
