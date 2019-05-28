@@ -139,12 +139,14 @@ class RegionLoss(nn.Module):
         self.bce_loss = nn.BCELoss(size_average=True)  # Confidence loss
         self.ce_loss = nn.CrossEntropyLoss()  # Class loss
 
+    #      shape '[12, 5, 9, 16, 32]' is invalid for input of size 460800
+    #             [12, 5, 15, 16, 32]
+
 
 
     def forward(self, x, target):
         #x : batch_size*num_anchorsx(6+1+num_classes)*H*W    [12,75,16,32]
         #targets :   targets define in utils.py  get_target function   [12,50,7]
-        print(len(anchors))
         nA = self.num_anchors     # num_anchors = 5
         nB = x.data.size(0)  # batch_size
         nH = x.data.size(2)  # nH  16
@@ -167,7 +169,6 @@ class RegionLoss(nn.Module):
         l_1 = output.index_select(2, Variable(torch.cuda.LongTensor([3]))).view(nB, nA, nH, nW)
         im_1= output.index_select(2, Variable(torch.cuda.LongTensor([4]))).view(nB, nA, nH, nW)
         re_1= output.index_select(2, Variable(torch.cuda.LongTensor([5]))).view(nB, nA, nH, nW)
-
 
         pred_boxes_1 = torch.cuda.FloatTensor(6, nB*nA*nH*nW)
         grid_x_1 = torch.linspace(0, nW-1, nW).repeat(nH,1).repeat(nB*nA, 1, 1).view(nB*nA*nH*nW).cuda()

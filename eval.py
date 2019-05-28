@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 import time
 import cv2
-from scipy import misc
+from complexYOLO import ComplexYOLO
 
 from utils import *
 
@@ -44,6 +44,7 @@ def get_region_boxes(x, conf_thresh, num_classes, anchors, num_anchors):
     y = torch.sigmoid(prediction[..., 1])  # Center y
     w = prediction[..., 2]  # Width
     h = prediction[..., 3]  # Height
+
     pred_conf = torch.sigmoid(prediction[..., 6])  # Conf
     pred_cls = torch.sigmoid(prediction[..., 7:])  # Cls pred.
 
@@ -86,64 +87,112 @@ bc['maxY'] = 40
 bc['minZ'] = -2;
 bc['maxZ'] = 1.25
 
-for file_i in range(6030,6230):
+for file_i in range(6030,6280):
+    print(file_i)
     test_i = str(file_i).zfill(6)
 
-    lidar_file = '/home/ai/KITTI/training/velodyne/' + test_i + '.bin'
-    calib_file = '/home/ai/KITTI/training/calib/' + test_i + '.txt'
-    label_file = '/home/ai/KITTI/training/label_2/' + test_i + '.txt'
+    lidar_file = '/data/KITTI_OBJECTS_3D/training/velodyne/' + test_i + '.bin'
+    calib_file = '/data/KITTI_OBJECTS_3D/training/calib/' + test_i + '.txt'
+    label_file = '/data/KITTI_OBJECTS_3D/training/label_2/' + test_i + '.txt'
 
     # load target data
     calib = load_kitti_calib(calib_file)
-    target = get_target(label_file, calib['Tr_velo2cam'])
+    target = get_target2(label_file)
     # print(target)
 
     # load point cloud data
     a = np.fromfile(lidar_file, dtype=np.float32).reshape(-1, 4)
     b = removePoints(a, bc)
     rgb_map = makeBVFeature(b, bc, 40 / 512)
-    misc.imsave('eval_bv.png', rgb_map)
+    mpimg.imsave('./results/eval_bv.png', rgb_map / rgb_map.max())
 
     # load trained model  and  forward
     input = torch.from_numpy(rgb_map)  # (512, 1024, 3)
     input = input.reshape(1, 3, 512, 1024)
-    model = torch.load('ComplexYOLO_epoch100')
+
+    model = ComplexYOLO()
+    model.load_state_dict(torch.load('ComplexYOLO_epoch140'))
+    model.eval()
+
     model.cuda()
     output = model(input.float().cuda())  # torch.Size([1, 75, 16, 32])
 
     # eval result
     conf_thresh = 0.7
     nms_thresh = 0.4
-    num_classes = int(8)
+    num_classes = int(4)
     num_anchors = int(5)
-    img = cv2.imread('eval_bv.png')
+    img = cv2.imread('./results/eval_bv.png')
 
     all_boxes = get_region_boxes(output, conf_thresh, num_classes, anchors, num_anchors)
 
     for i in range(len(all_boxes)):
-        pred_img_y = int(all_boxes[i][0] * 1024.0 / 32.0)  # 32 cell = 1024 pixels
-        pred_img_x = int(all_boxes[i][1] * 512.0 / 16.0)  # 16 cell = 512 pixels
+
+        pred_img_x = int(all_boxes[i][0] * 1024.0 / 32.0)  # 32 cell = 1024 pixels
+        pred_img_y = int(all_boxes[i][1] * 512.0 / 16.0)  # 16 cell = 512 pixels
         pred_img_width = int(all_boxes[i][2] * 1024.0 / 32.0)  # 32 cell = 1024 pixels
         pred_img_height = int(all_boxes[i][3] * 512.0 / 16.0)  # 16 cell = 512 pixels
 
-        rect_top1 = int(pred_img_y - pred_img_width / 2)
-        rect_top2 = int(pred_img_x - pred_img_height / 2)
-        rect_bottom1 = int(pred_img_y + pred_img_width / 2)
-        rect_bottom2 = int(pred_img_x + pred_img_height / 2)
-        cv2.rectangle(img, (rect_top1, rect_top2), (rect_bottom1, rect_bottom2), (255, 0, 0), 1)
+        # im = all_boxes[i][4].detach()
+        # re = all_boxes[i][5].detach()
 
-    # for j in range(50):
-    #     if target[j][1] == 0:
-    #         break
-    #     img_y = int(target[j][1] * 1024.0)  # 32 cell = 1024 pixels
-    #     img_x = int(target[j][2] * 512.0)  # 16 cell = 512 pixels
-    #     img_width = int(target[j][3] * 1024.0)  # 32 cell = 1024 pixels
-    #     img_height = int(target[j][4] * 512.0)  # 16 cell = 512 pixels
-    #
-    #     rect_top1 = int(img_y - img_width / 2)
-    #     rect_top2 = int(img_x - img_height / 2)
-    #     rect_bottom1 = int(img_y + img_width / 2)
-    #     rect_bottom2 = int(img_x + img_height / 2)
-    #     cv2.rectangle(img, (rect_top1, rect_top2), (rect_bottom1, rect_bottom2), (0, 0, 255), 1)
+        local_coords = np.array([
+            [-pred_img_width / 2, -pred_img_height / 2],
+            [-pred_img_width / 2, pred_img_height / 2],
+            [pred_img_width / 2, pred_img_height / 2],
+            [pred_img_width / 2, -pred_img_height / 2]
+        ], np.int32)
 
-    misc.imsave('eval_bv' + test_i + '.png', img)
+        # angle = np.arctan2(im, re) - (np.pi / 2)
+        #
+        # local_rotation = np.array([
+        #     [np.cos(angle), -np.sin(angle)],
+        #     [np.sin(angle), np.cos(angle)]
+        # ])
+
+        transition = np.array([
+            [pred_img_x, pred_img_y]
+        ])
+
+        pred_coords = local_coords + transition
+        pred_coords = pred_coords.astype(np.int32)
+        pred_coords = pred_coords.reshape((-1, 1, 2))
+        cv2.polylines(img, [pred_coords], True, (255, 0, 0), 2)
+
+    for j in range(50):
+        if target[j][1] == 0:
+            break
+
+        img_x = int(target[j][1] * 1024.0)  # 32 cell = 1024 pixels
+        img_y = int(target[j][2] * 512.0)  # 16 cell = 512 pixels
+        img_width = int(target[j][3] * 1024.0)  # 32 cell = 1024 pixels
+        img_height = int(target[j][4] * 512.0)  # 16 cell = 512 pixels
+
+        # im = target[j][5]
+        # re = target[j][6]
+        #
+        # angle = np.arctan2(im, re) - (np.pi / 2)
+
+        local_coords = np.array([
+            [-img_height / 2, -img_width / 2],
+            [img_height / 2, -img_width / 2],
+            [img_height / 2, img_width / 2],
+            [-img_height / 2, img_width / 2]
+        ], np.int32)
+
+        # local_rotation = np.array([
+        #     [np.cos(angle), -np.sin(angle)],
+        #     [np.sin(angle), np.cos(angle)]
+        # ])
+
+        transition = np.array([
+            [img_x, img_y]
+        ])
+
+        coords = local_coords + transition
+        coords = coords.astype(np.int32)
+        coords = coords.reshape((-1, 1, 2))
+
+        cv2.polylines(img, [coords], True, (0, 0, 255), 1)
+
+    mpimg.imsave('./results/eval_bv' + test_i + '.png', img)

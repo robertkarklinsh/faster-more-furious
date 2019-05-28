@@ -8,9 +8,11 @@ import math
 
 
 # classes
-object_list = {'Car':0, 'Van':1, 'Truck':2, 'Pedestrian':3, 'Person_sitting':4, 'Cyclist':5, 'Tram':6}
-class_list = ['Car', 'Van' , 'Truck' , 'Pedestrian' , 'Person_sitting' , 'Cyclist' , 'Tram' ]
+# object_list = {'Car':0, 'Van':1, 'Truck':2, 'Pedestrian':3, 'Person_sitting':4, 'Cyclist':5, 'Tram':6}
+# class_list = ['Car', 'Van' , 'Truck' , 'Pedestrian' , 'Person_sitting' , 'Cyclist' , 'Tram' ]
 
+object_list = {'Car':0, 'Van':1, 'Truck':2}
+class_list = ['Car', 'Van' , 'Truck']
 
 bc={}
 bc['minX'] = 0; bc['maxX'] = 80; bc['minY'] = -40; bc['maxY'] = 40
@@ -149,6 +151,7 @@ def get_target(label_file,Tr):
     index=0
     for j in range(num_obj):
         obj = lines[j].strip().split(' ')
+        # print(obj)
         obj_class = obj[0].strip()
         #print(obj)
 
@@ -172,7 +175,8 @@ def get_target(label_file,Tr):
                   target[index][4]=float(obj_length)/40     # get target width ,length
 
 
-                  obj_alpha = obj[3].strip()            # get target Observation angle of object, ranging [-pi..pi]
+                  obj_alpha = obj[14].strip()            # get target Observation angle of object, ranging [-pi..pi]
+                  # print(obj_alpha)
                   target[index][5]=math.sin(float(obj_alpha))    #complex YOLO   Im
                   target[index][6]=math.cos(float(obj_alpha))    #complex YOLO   Re
 
@@ -221,16 +225,16 @@ def box3d_cam_to_velo(box3d, Tr):
                     [w / 2, -w / 2, -w / 2, w / 2, w / 2, -w / 2, -w / 2, w / 2],
                     [0, 0, 0, 0, h, h, h, h]])
 
-    rz = ry_to_rz(ry)
+    # rz = ry_to_rz(ry)
 
-    rotMat = np.array([
-        [np.cos(rz), -np.sin(rz), 0.0],
-        [np.sin(rz), np.cos(rz), 0.0],
-        [0.0, 0.0, 1.0]])
+    # rotMat = np.array([
+    #     [np.cos(rz), -np.sin(rz), 0.0],
+    #     [np.sin(rz), np.cos(rz), 0.0],
+    #     [0.0, 0.0, 1.0]])
 
-    velo_box = np.dot(rotMat, Box)
+    # velo_box = np.dot(rotMat, Box)
 
-    cornerPosInVelo = velo_box + np.tile(t_lidar, (8, 1)).T
+    cornerPosInVelo = Box + np.tile(t_lidar, (8, 1)).T
 
     box3d_corner = cornerPosInVelo.transpose()
 
