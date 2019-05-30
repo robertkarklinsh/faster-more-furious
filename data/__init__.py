@@ -1,4 +1,5 @@
 from .voc0712 import VOCDetection, VOCAnnotationTransform, VOC_CLASSES, VOC_ROOT
+from .kitti import *
 
 # from .coco import COCODetection, COCOAnnotationTransform, COCO_CLASSES, COCO_ROOT, get_label_map
 from .config import *
@@ -24,7 +25,8 @@ def detection_collate(batch):
     for sample in batch:
         imgs.append(sample[0])
         targets.append(torch.FloatTensor(sample[1]))
-    return torch.stack(imgs, 0), targets
+
+    return torch.tensor(np.stack(imgs, 0)), targets
 
 
 def base_transform(image, size, mean):

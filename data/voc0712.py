@@ -97,7 +97,7 @@ class VOCDetection(data.Dataset):
     def __init__(self, root,
                  image_sets=[('2007', 'trainval'), ('2012', 'trainval')],
                  transform=None, target_transform=VOCAnnotationTransform(),
-                 dataset_name='VOC0712'):
+                 dataset_name='VOC0712', num_classes=2):
         self.root = root
         self.image_set = image_sets
         self.transform = transform
@@ -106,10 +106,27 @@ class VOCDetection(data.Dataset):
         self._annopath = osp.join('%s', 'Annotations', '%s.xml')
         self._imgpath = osp.join('%s', 'JPEGImages', '%s.jpg')
         self.ids = list()
+
+        self.num_classes = num_classes
+
         for (year, name) in image_sets:
             rootpath = osp.join(self.root, 'VOC' + year)
+            # cntr = 0
             for line in open(osp.join(rootpath, 'ImageSets', 'Main', name + '.txt')):
-                self.ids.append((rootpath, line.strip()))
+                # cntr += 1
+                # if cntr > 64:
+                    # break
+                img_id = line.strip()
+
+                target = ET.parse(self._annopath % (rootpath, img_id)).getroot()
+                img = cv2.imread(self._imgpath % (rootpath, img_id))
+                height, width, channels = img.shape
+
+                target = self.target_transform(target, width, height)
+                target = np.array(target)
+
+                if np.any(target[:,4] < self.num_classes - 1):
+                    self.ids.append((rootpath, img_id))
 
     def __getitem__(self, index):
         im, gt, h, w = self.pull_item(index)
@@ -131,6 +148,7 @@ class VOCDetection(data.Dataset):
 
         if self.transform is not None:
             target = np.array(target)
+            target = target[target[:,4] < self.num_classes - 1]
             img, boxes, labels = self.transform(img, target[:, :4], target[:, 4])
             # to rgb
             img = img[:, :, (2, 1, 0)]
