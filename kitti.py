@@ -50,6 +50,8 @@ class KittiDataset(torch.utils.data.Dataset):
 
             data = makeBVFeature(b, bc ,40/512)   # (512, 1024, 3)
 
+            print(type(data), type(target))
+
             return data , target
 
         elif self.type == 'velodyne_test':

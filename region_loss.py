@@ -269,9 +269,11 @@ class RegionLoss(nn.Module):
         loss_y = self.mse_loss(y[mask], ty[mask])
         loss_w = self.mse_loss(w[mask], tw[mask])
         loss_h = self.mse_loss(h[mask], th[mask])
+
         loss_im = self.mse_loss(im[mask], tim[mask])
         loss_re = self.mse_loss(re[mask], tre[mask])
         loss_Euler = (loss_im + loss_re)
+
         loss_conf = self.bce_loss(pred_conf[conf_mask_false], tconf[conf_mask_false]) + self.bce_loss(
             pred_conf[conf_mask_true], tconf[conf_mask_true]
         )

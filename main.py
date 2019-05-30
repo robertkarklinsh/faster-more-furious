@@ -16,7 +16,7 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 batch_size=12
 
 # dataset
-dataset=KittiDataset(root='/data/KITTI_OBJECTS_3D/',set='train')
+dataset=KittiDataset(root='/data/KITTI_OBJECTS_3D/training',set='train')
 data_loader = data.DataLoader(dataset, batch_size, shuffle=True)
 
 model = ComplexYOLO()
@@ -34,6 +34,8 @@ for epoch in range(400):
 
    for batch_idx, (rgb_map, target) in enumerate(data_loader):
           optimizer.zero_grad()
+
+          print(type(rgb_map), type(target))
 
           rgb_map = rgb_map.view(rgb_map.data.size(0),rgb_map.data.size(3),rgb_map.data.size(1),rgb_map.data.size(2))
           output = model(rgb_map.float().cuda())
