@@ -9,22 +9,17 @@ import numpy as np
 import math
 
 
-object_list = {'Car': 0, 'Van': 1, 'Truck': 2}
-class_list = ['Car', 'Van', 'Truck']
+object_list = {'Car':0, 'Van':1, 'Truck':2}
+class_list = ['Car', 'Van' , 'Truck']
 
-bc = {}
-bc['minX'] = 0;
-bc['maxX'] = 80;
-bc['minY'] = -40;
-bc['maxY'] = 40
-bc['minZ'] = -2;
-bc['maxZ'] = 1.25
-
+bc={}
+bc['minX'] = 0; bc['maxX'] = 80; bc['minY'] = -40; bc['maxY'] = 40
+bc['minZ'] =-2; bc['maxZ'] = 1.25
 
 def interpret_kitti_label(bbox):
     w, h, l, y, z, x, yaw = bbox[8:15]
     y = -y
-    yaw = (yaw + np.pi / 2)
+    yaw =  (yaw + np.pi / 2)
 
     return x, y, w, l, yaw
 
@@ -49,24 +44,19 @@ def get_target2(label_file):
 
             x, y, w, l, yaw = interpret_kitti_label(bbox)
 
-            location_x = x
-            location_y = y
+            if (x > bc['minX']) & (x < bc['maxX']) & (y > bc['minY']) & (y < bc['maxY']):
+                pos_x = np.int_(np.floor(y / (80 / 300)) + 301 / 2)
+                pos_y = np.int_(np.floor(x / (80 / 300)))
 
-            if (location_x > 0) & (location_x < 40) & (location_y > -40) & (location_y < 40):
-                x = (y + 40) / 80
-                y = x / 40
+                width = np.int_(np.floor(w / (55 / 301)))
+                height = np.int_(np.floor(l / (55 / 301)))
 
-                length = float(l) / 80
-                width = float(w) / 40
+                # xmin, ymin, xmax, ymax,
 
-                target[index][0] = x - length / 2   # we should put this in [0,1], so divide max_size  80 m
-                target[index][1] = y - width / 2  # make sure target inside the covering area (0,1)
-
-                target[index][2] = x + length / 2
-                target[index][3] = y + width / 2  # get target width, length
-
-                # target[index][5] = math.sin(float(yaw))  # complex YOLO   Im
-                # target[index][6] = math.cos(float(yaw))  # complex YOLO   Re
+                target[index][0] = (pos_x - width / 2) / 301
+                target[index][1] = (pos_y - height / 2) / 301
+                target[index][2] = (pos_x + width / 2) / 301
+                target[index][3] = (pos_y + height / 2) / 301
 
                 for i in range(len(class_list)):
                     if obj_class == class_list[i]:  # get target class
@@ -99,7 +89,7 @@ def removePoints(PointCloud, BoundaryCond):
     return PointCloud
 
 
-def makeBVFeature(PointCloud_, BoundaryCond, Discretization):
+def makeBVFeature(PointCloud_, Discretization):
     # 1024 x 1024 x 3
     Height = 300 + 1
     Width = 300 + 1
@@ -152,12 +142,11 @@ def makeBVFeature(PointCloud_, BoundaryCond, Discretization):
     RGB_Map[:, :, 1] = heightMap  # g_map
     RGB_Map[:, :, 2] = intensityMap  # b_map
 
-    save = np.zeros((512, 1024, 3))
-    save = RGB_Map[0:512, 0:1024, :]
+    # save = np.zeros((512, 1024, 3))
+    # save = RGB_Map[0:512, 0:1024, :]
     # misc.imsave('test_bv.png',save[::-1,::-1,:])
     # misc.imsave('test_bv.png',save)
-    return save
-
+    return RGB_Map
 
 class KittiDataset(data.Dataset):
 
@@ -212,10 +201,33 @@ class KittiDataset(data.Dataset):
 
         b = removePoints(a, bc)
 
-        data = makeBVFeature(b, bc, 40 / 150)  # (512, 1024, 3)
+        data = makeBVFeature(b, 80 / 300)  # (512, 1024, 3)
 
         return data, target
 
 
     def __len__(self):
         return len(self.file_list)
+
+import matplotlib.image as mpimg
+import cv2
+
+def test_voxelization():
+    dataset = KittiDataset(root='/data/KITTI_OBJECTS_3D/training', set='train')
+
+    data, target = dataset.__getitem__(3)
+
+    save_folder = '../eval/'
+    mpimg.imsave(os.path.join(save_folder, 'sample.png'), data / data.max())
+
+    image = cv2.imread(os.path.join(save_folder, 'sample.png'))
+
+    for i in target:
+        i = (i * 301).astype(np.int)
+
+        cv2.rectangle(image, (i[0],i[1]), (i[2],i[3]), (0, 0, 255))
+
+    mpimg.imsave(os.path.join(save_folder, 'sample.png'), image)
+
+if __name__ == '__main__':
+    test_voxelization()

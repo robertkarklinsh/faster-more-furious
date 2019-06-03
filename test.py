@@ -53,75 +53,27 @@ def test_net(save_folder, net, cuda, testset, thresh):
         if cuda:
             data = data.cuda()
 
-        y = net(data)      # forward pass
-        y = y.squeeze()
+        y = net(data).squeeze()      # forward pass
 
-        print(y.shape)
-        print(y[1][0])
+        indices = y.nonzero()
+        bboxes_predictions = y[indices[:, 0], indices[:, 1]].detach().cpu().numpy()
 
-        test = y[1][0].cpu().detach().numpy()
 
         image = cv2.imread(os.path.join(save_folder, 'sample.png'))
 
-        x = int(test[0] * 301.0)  # 32 cell = 1024 pixels
-        y = int(test[1] * 301.0)  # 16 cell = 512 pixels
-        width = int(test[2] * 301.0)  # 32 cell = 1024 pixels
-        height = int(test[3] * 301.0)  # 16 cell = 512 pixels
-
-        local_coords = np.array([
-            [-width / 2, -height / 2],
-            [-width / 2, height / 2],
-            [width / 2, height / 2],
-            [width / 2, -height / 2]
-        ], np.int32)
-
-        # local_rotation = np.array([
-        #     [np.cos(angle), -np.sin(angle)],
-        #     [np.sin(angle), np.cos(angle)]
-        # ])
-
-        transition = np.array([
-            [x, y]
-        ])
-
-        coords = local_coords + transition
-        coords = coords.astype(np.int32)
-        coords = coords.reshape((-1, 1, 2))
-
-        cv2.polylines(image, [coords], True, (255, 0, 0), 1)
-
-        # cv2.polylines(img, [pred_coords], True, (255, 0, 0), 2)
-
         for i in target:
-            x = int(i[0] * 301.0)  # 32 cell = 1024 pixels
-            y = int(i[1] * 301.0)  # 16 cell = 512 pixels
-            width = int(i[2] * 301.0)  # 32 cell = 1024 pixels
-            height = int(i[3] * 301.0)  # 16 cell = 512 pixels
+            i = (i * 301).astype(np.int)
 
-            local_coords = np.array([
-                [-height / 2, -width / 2],
-                [height / 2, -width / 2],
-                [height / 2, width / 2],
-                [-height / 2, width / 2]
-            ], np.int32)
+            cv2.rectangle(image, (i[0], i[1]), (i[2], i[3]), (0, 0, 255))
 
-            # local_rotation = np.array([
-            #     [np.cos(angle), -np.sin(angle)],
-            #     [np.sin(angle), np.cos(angle)]
-            # ])
+        for i in bboxes_predictions:
+            i = (i * 301).astype(np.int)
 
-            transition = np.array([
-                [x, y]
-            ])
+            print(i)
 
-            coords = local_coords + transition
-            coords = coords.astype(np.int32)
-            coords = coords.reshape((-1, 1, 2))
-
-            cv2.polylines(image, [coords], True, (0, 0, 255), 1)
+            cv2.rectangle(image, (i[0], i[1]), (i[2], i[3]), (255, 0, 0))
 
         mpimg.imsave(filename, image)
-
 
         # detections = y.data
         # scale each detection back up to the image

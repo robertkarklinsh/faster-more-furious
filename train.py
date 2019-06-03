@@ -33,7 +33,7 @@ parser.add_argument('--basenet', default='vgg16_reducedfc.pth',
                     help='Pretrained base model')
 parser.add_argument('--batch_size', default=12, type=int,
                     help='Batch size for training')
-parser.add_argument('--resume', default='weights/ssd300_COCO_10000.pth', type=str,
+parser.add_argument('--resume', default='weights/ssd300_COCO_5000.pth', type=str,
                     help='Checkpoint state_dict file to resume training from')
 parser.add_argument('--start_iter', default=0, type=int,
                     help='Resume training at this iter')
@@ -158,6 +158,7 @@ def train():
         except StopIteration:
             batch_iterator = iter(data_loader)
             images, targets = next(batch_iterator)
+
 
         images = images.view(images.data.size(0),images.data.size(3),images.data.size(1),images.data.size(2)).float()
 
